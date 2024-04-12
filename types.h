@@ -99,14 +99,14 @@ typedef enum RDMA_FUNCTION_CALL
 	CM_MIGRATE_ID,
 	CM_DISCONNECT,
 
+	IBV_RESTORE_QP,
+
 	// Freeflow Socket
 	SOCKET_SOCKET,
 	SOCKET_BIND,
 	SOCKET_ACCEPT,
 	SOCKET_ACCEPT4,
 	SOCKET_CONNECT,
-
-	IBV_RESTORE_QP,
 
 } RDMA_FUNCTION_CALL;
 
@@ -802,6 +802,15 @@ struct IBV_RESTORE_QP_REQ
 struct IBV_RESTORE_QP_RSP
 {
 	char shm_name[100];
+};
+
+struct IBV_RECONNECT_QP_REQ
+{
+	uint32_t src_qpn;
+	uint32_t dest_qpn;
+	uint16_t	lid;
+	union ibv_gid		gid;
+	// uint32_t	qp_handle;
 };
 
 #endif /* TYPES_H */

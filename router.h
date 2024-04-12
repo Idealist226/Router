@@ -12,6 +12,7 @@
 #include <infiniband/verbs.h>
 // #include <rdma/rdma_cma.h>
 
+#define UDP_PORT 11232
 #define HOST_NUM 2
 
 const char HOST_LIST[HOST_NUM][16] = {

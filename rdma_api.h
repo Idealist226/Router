@@ -66,6 +66,8 @@ struct ib_data {
 	char *ib_buffer;
 };
 
+void move_qp_to_rst(struct ibv_qp *qp);
+
 void move_qp_to_init(struct ibv_qp *qp);
 
 void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest);

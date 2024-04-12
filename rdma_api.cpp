@@ -19,6 +19,20 @@ gettime_us()
   return (cur_time.tv_sec * 1000 * 1000) + cur_time.tv_usec; 
 }
 
+void move_qp_to_rst(struct ibv_qp *qp)
+{
+  struct ibv_qp_attr attr;
+  int flags;
+  int ret;
+  memset(&attr, 0, sizeof(attr));
+  attr.qp_state = IBV_QPS_RESET;
+  flags = IBV_QP_STATE;
+  ret = ibv_modify_qp(qp, &attr, flags);
+  if(ret) {
+      fprintf(stderr, "failed to modify QP state to RESET\n");
+  }
+}
+
 void
 move_qp_to_init(struct ibv_qp *qp)
 {
@@ -29,8 +43,8 @@ move_qp_to_init(struct ibv_qp *qp)
   memset(&attr, 0, sizeof(struct ibv_qp_attr)); 
   attr.qp_state        = IBV_QPS_INIT; 
   attr.pkey_index      = 0;
-  attr.port_num         = 0;
-  attr.qp_access_flags   = IBV_ACCESS_REMOTE_WRITE; 
+  attr.port_num         = 1;
+  attr.qp_access_flags   = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
   ret = ibv_modify_qp(qp, &attr, flags);
   if (ret != 0) {
     fprintf(stderr,"failed to init qp. ret=%d\n", ret);
