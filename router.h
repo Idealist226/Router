@@ -12,12 +12,18 @@
 #include <infiniband/verbs.h>
 // #include <rdma/rdma_cma.h>
 
-#define UDP_PORT 11232
+#define MR_MAP_PORT 11231
+#define RSTORE_PORT 11232
 #define HOST_NUM 2
 
 const char HOST_LIST[HOST_NUM][16] = {
-	"192.168.2.13",
-	"192.168.2.15"
+	"192.168.122.47",
+	"192.168.122.68"
+};
+
+struct MR_SHM {
+    char* mr_ptr;
+    char* shm_ptr;
 };
 
 struct HandlerArgs {
@@ -70,8 +76,8 @@ public:
 	pthread_mutex_t lkey_ptr_mtx;
 
 	// rkey --> MR and SHM pointers
-	// std::map<uint32_t, struct MR_SHM> rkey_mr_shm;
-	// pthread_mutex_t rkey_mr_shm_mtx;
+	std::map<uint32_t, struct MR_SHM> rkey_mr_shm;
+	pthread_mutex_t rkey_mr_shm_mtx;
 
 	// qp_handle -> tokenbucket
 	// std::map<uint32_t, TokenBucket*> tokenbucket;
