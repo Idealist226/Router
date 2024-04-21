@@ -69,10 +69,13 @@ struct ib_data {
 void move_qp_to_rst(struct ibv_qp *qp);
 
 void move_qp_to_init(struct ibv_qp *qp);
+void move_qp_to_init(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr);
 
 void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest);
+void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest, struct ibv_qp_attr *qp_attr);
 
 void move_qp_to_rts(struct ibv_qp *qp);
+void move_qp_to_rts(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr);
 
 void post_receive(struct ib_data *myib);
 

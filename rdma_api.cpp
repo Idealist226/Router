@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "rdma_api.h"
+#include "log.h"
 
 unsigned long
 gettime_ms()
@@ -52,6 +53,24 @@ move_qp_to_init(struct ibv_qp *qp)
   }
 }
 
+void move_qp_to_init(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr)
+{
+  struct ibv_qp_attr attr;
+  int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+  int ret;
+
+  memset(&attr, 0, sizeof(struct ibv_qp_attr)); 
+  attr.qp_state = IBV_QPS_INIT;
+  attr.pkey_index = qp_attr->pkey_index;
+  attr.port_num = qp_attr->port_num;
+  attr.qp_access_flags = qp_attr->qp_access_flags;
+  ret = ibv_modify_qp(qp, &attr, flags);
+  if (ret != 0) {
+    fprintf(stderr,"failed to init qp. ret=%d\n", ret);
+    ////exit(-1);
+  }
+}
+
 void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest)
 {
   int flags = 0;
@@ -63,23 +82,68 @@ void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest)
   attr.qp_state = IBV_QPS_RTR;
   attr.path_mtu = IBV_MTU_1024;
   attr.dest_qp_num = dest->qpn;
-  attr.rq_psn = dest->psn;
+  LOG_DEBUG("dest->qpn: " << dest->qpn);
+  attr.rq_psn = 0;
   attr.max_dest_rd_atomic = 1;
   attr.min_rnr_timer = 0x12;
 
   attr.ah_attr.dlid = dest->lid;
+  LOG_DEBUG("dest->lid: " << dest->lid);
   attr.ah_attr.sl = 1;
   attr.ah_attr.src_path_bits = 0;
   attr.ah_attr.port_num = IB_PORT_NUM;
-  attr.ah_attr.is_global  = 1;
+  attr.ah_attr.is_global  = 0;
   attr.ah_attr.static_rate = 7;
   attr.ah_attr.grh.dgid = dest->gid;
+  uint8_t gid[16];
+  memcpy(gid, &(dest->gid), 16);
+  uint8_t *p = gid;
+  fprintf(stdout, "Remote GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+				p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
   attr.ah_attr.grh.sgid_index = 1;
   attr.ah_attr.grh.flow_label = 0;
   attr.ah_attr.grh.hop_limit = 10;
   attr.ah_attr.grh.traffic_class = 1;
 
   attr.max_dest_rd_atomic = dest->out_reads;
+
+  flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+
+  ret = ibv_modify_qp(qp, &attr, flags);
+  if (ret != 0) {
+    fprintf(stderr, "failed to move qp to rtr. ret=%d\n", ret);
+    ////exit(-1);
+  }
+}
+
+void move_qp_to_rtr(struct ibv_qp *qp, struct ib_conn_data *dest, struct ibv_qp_attr *qp_attr)
+{
+  int flags = 0;
+  struct ibv_qp_attr attr;
+  int ret;
+
+  memset(&attr, 0, sizeof attr);
+
+  attr.qp_state = IBV_QPS_RTR;
+  attr.path_mtu = qp_attr->path_mtu;
+  attr.dest_qp_num = dest->qpn;
+  attr.rq_psn = 0;
+  attr.max_dest_rd_atomic = qp_attr->max_dest_rd_atomic;
+  attr.min_rnr_timer = qp_attr->min_rnr_timer;
+
+  attr.ah_attr.dlid = dest->lid;
+  attr.ah_attr.sl = qp_attr->ah_attr.sl;
+  attr.ah_attr.src_path_bits = qp_attr->ah_attr.src_path_bits;
+  attr.ah_attr.port_num = qp_attr->ah_attr.port_num;
+  attr.ah_attr.is_global  = qp_attr->ah_attr.is_global;
+  attr.ah_attr.static_rate = qp_attr->ah_attr.static_rate;
+  attr.ah_attr.grh.dgid = dest->gid;
+  attr.ah_attr.grh.sgid_index = qp_attr->ah_attr.grh.sgid_index;
+  attr.ah_attr.grh.flow_label = qp_attr->ah_attr.grh.flow_label;
+  attr.ah_attr.grh.hop_limit = qp_attr->ah_attr.grh.hop_limit;
+  attr.ah_attr.grh.traffic_class = qp_attr->ah_attr.grh.traffic_class;
+
+  attr.max_dest_rd_atomic = qp_attr->max_dest_rd_atomic;
 
   flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
 
@@ -104,6 +168,31 @@ void move_qp_to_rts(struct ibv_qp *qp)
   attr.rnr_retry = 7;
   attr.sq_psn = 0;
   attr.max_rd_atomic = 1;
+
+  flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT |
+  IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
+
+  ret = ibv_modify_qp(qp, &attr, flags);
+  if (ret != 0) {
+    fprintf(stderr, "failed to move qp to rts. ret=%d\n", ret);
+    ////exit(-1);
+  }
+}
+
+void move_qp_to_rts(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr)
+{
+  int flags = 0;
+  struct ibv_qp_attr attr;
+  int ret;
+
+  memset(&attr, 0, sizeof attr);
+
+  attr.qp_state = IBV_QPS_RTS;
+  attr.timeout = qp_attr->timeout;
+  attr.retry_cnt = qp_attr->retry_cnt;
+  attr.rnr_retry = qp_attr->rnr_retry;
+  attr.sq_psn = 0;
+  attr.max_rd_atomic = qp_attr->max_rd_atomic;
 
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT |
   IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
@@ -244,7 +333,7 @@ void setup_ib(struct ib_data *myib)
 		exit(-1);
 	}
 
-	if (ibv_query_gid(myib->ib_context, IB_PORT_NUM, 1, &myib->ib_gid) < 0) {
+	if (ibv_query_gid(myib->ib_context, IB_PORT_NUM, 0, &myib->ib_gid) < 0) {
 		fprintf(stderr, "could not get gid\n");
 		exit(-1);
 	}

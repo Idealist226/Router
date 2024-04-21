@@ -663,7 +663,7 @@ void HandleRequest(struct HandlerArgs *args)
 
 				struct sockaddr_in si_other;
 				struct sockaddr src_addr;
-				char recv_buff[1400];
+				char recv_buff[100];
 				ssize_t recv_buff_size;
 				socklen_t slen = sizeof(si_other);
 				int s;
@@ -688,7 +688,7 @@ void HandleRequest(struct HandlerArgs *args)
 						LOG_TRACE("Sent MR mapping to " << HOST_LIST[i]);
 					}
 
-					if ((recv_buff_size = recvfrom(s, recv_buff, 1400, 0, (sockaddr*)&si_other, &slen)) < 0) {
+					if ((recv_buff_size = recvfrom(s, recv_buff, 100, 0, (sockaddr*)&si_other, &slen)) < 0) {
 						LOG_ERROR("Error in receiving MR mapping ack" << HOST_LIST[i]);
 					} else {
 						char src_str[INET_ADDRSTRLEN];
@@ -1004,96 +1004,122 @@ void HandleRequest(struct HandlerArgs *args)
 			}
 				break;
 			case IBV_RESTORE_QP: {
-				// LOG_DEBUG("IBV_RESTORE_QP");
+				LOG_DEBUG("IBV_RESTORE_QP");
 
-				// struct IBV_RESTORE_QP_REQ *request = (struct IBV_RESTORE_QP_REQ *)req_body;
-				// //req_body = malloc(sizeof(struct IBV_RESTORE_QP_REQ));
-				// if (read(client_sock, req_body, sizeof(*request)) < sizeof(*request)) {
-				// 	LOG_ERROR("RESTORE_QP: Failed to read request body.");
-				// 	goto kill;
-				// }
+				struct IBV_RESTORE_QP_REQ *request = (struct IBV_RESTORE_QP_REQ *)req_body;
+				//req_body = malloc(sizeof(struct IBV_RESTORE_QP_REQ));
+				if (read(client_sock, req_body, sizeof(*request)) < sizeof(*request)) {
+					LOG_ERROR("RESTORE_QP: Failed to read request body.");
+					goto kill;
+				}
 
-				// struct ibv_qp_init_attr qp_init_attr;
-				// memset(&qp_init_attr, 0, sizeof(qp_init_attr));
-				// qp_init_attr.qp_type = IBV_QPT_RC;
-				// qp_init_attr.sq_sig_all = 1;
-				// int send_cq_handle = ffr->getHandle(IBV_CQ, request->send_cq_handle);
-				// int recv_cq_handle = ffr->getHandle(IBV_CQ, request->recv_cq_handle);
-				// qp_init_attr.send_cq = ffr->cq_map[send_cq_handle];
-				// qp_init_attr.recv_cq = ffr->cq_map[recv_cq_handle];
-				// qp_init_attr.cap.max_send_wr = 1;
-				// qp_init_attr.cap.max_recv_wr = 1;
-				// qp_init_attr.cap.max_send_sge = 1;
-				// qp_init_attr.cap.max_recv_sge = 1;
-				// int pd_handle = ffr->getHandle(IBV_PD, request->pd_handle);
+				struct ibv_qp_init_attr qp_init_attr;
+				memset(&qp_init_attr, 0, sizeof(qp_init_attr));
+				qp_init_attr.qp_type = IBV_QPT_RC;
+				qp_init_attr.sq_sig_all = 1;
+				int send_cq_handle = ffr->getHandle(IBV_CQ, request->send_cq_handle);
+				int recv_cq_handle = ffr->getHandle(IBV_CQ, request->recv_cq_handle);
+				qp_init_attr.send_cq = ffr->cq_map[send_cq_handle];
+				qp_init_attr.recv_cq = ffr->cq_map[recv_cq_handle];
+				qp_init_attr.cap.max_send_wr = 1;
+				qp_init_attr.cap.max_recv_wr = 1;
+				qp_init_attr.cap.max_send_sge = 1;
+				qp_init_attr.cap.max_recv_sge = 1;
+				int pd_handle = ffr->getHandle(IBV_PD, request->pd_handle);
 
-				// struct ibv_qp *test_qp = ibv_create_qp(ffr->pd_map[pd_handle], &qp_init_attr);
-				// if(!test_qp) {
-				// 	LOG_ERROR("failed to create QP\n");
-				// }
-				// LOG_DEBUG("create qp over");
-				// move_qp_to_init(test_qp);
-				// LOG_DEBUG("move_qp_to_init over");
-				// struct ib_conn_data dest;
-				// dest.out_reads = 1;
-				// dest.psn = 0;
-				// dest.lid = request->lid;
-				// dest.qpn = request->qpn;
-				// dest.gid = request->gid;
-				// move_qp_to_rtr(test_qp, &dest);
-				// LOG_DEBUG("move_qp_to_rtr over");
-				// move_qp_to_rts(test_qp);
-				// LOG_DEBUG("move_qp_to_rts over");
-
-				// ffr->qp_map[test_qp->handle] = test_qp;
-				// ffr->qp_handle_map[request->qp_handle] = test_qp->handle;
+				struct ibv_qp *test_qp = ibv_create_qp(ffr->pd_map[pd_handle], &qp_init_attr);
+				if(!test_qp) {
+					LOG_ERROR("failed to create QP\n");
+				}
+				LOG_DEBUG("create qp over");
 
 
 
-				// LOG_DEBUG("向对端 Router 发送重建 QP 连接的请求");
-				// // 向对端 Router 发送重建 QP 连接的请求
-				// struct sockaddr_in si_me, si_other;
-				// int s;
-				// socklen_t slen = sizeof(si_other);
-				// struct IBV_RECONNECT_QP_REQ buf;
+
+				LOG_DEBUG("向对端 Router 发送重建 QP 连接的请求");
+				// 向对端 Router 发送重建 QP 连接的请求
+				struct sockaddr_in si_self, si_other;
+				int s;
+				socklen_t slen = sizeof(si_other);
+				struct IBV_RECONNECT_QP_REQ buf;
 				
-				// if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-				// 	LOG_ERROR("Error in creating socket for UDP server");
+				if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+					LOG_ERROR("Error in creating socket for UDP server");
+				}
+
+				memset(&si_other, 0, sizeof(si_other));
+				si_other.sin_family = AF_INET;
+				si_other.sin_port = htons(RESTORE_PORT);
+				if (inet_aton("192.168.122.68", &si_other.sin_addr) == 0) {
+					LOG_ERROR("Error in creating socket for UDP client other.");
+				}
+
+				// memset(&si_self, 0, sizeof(si_self));
+				// si_self.sin_family = AF_INET;
+				// si_self.sin_port = htons(0);
+				// if (inet_aton("0.0.0.0", &si_self.sin_addr) == 0) {
+				// 	LOG_ERROR("Error in creating socket for UDP client self.");
 				// }
 
-				// memset(&si_other, 0, sizeof(si_other));
-				// si_other.sin_family = AF_INET;
-				// si_other.sin_port = htons(UDP_PORT);
-				// if (inet_aton("192.168.122.47", &si_other.sin_addr)==0) {
-				// 	LOG_ERROR("Error in creating socket for UDP client other.");
-				// 	continue;
+				// if (bind(s, (const struct sockaddr *)&si_self, sizeof(si_self)) < 0) {
+				// 	LOG_ERROR("Failed to bind UDP. errno=" << errno);
 				// }
 
-				// buf.src_qpn = test_qp->qp_num;
-				// buf.dest_qpn = request->qpn;
-				// buf.lid = ffr->rdma_data.ib_port_attr.lid;
-				// buf.gid = ffr->rdma_data.ib_gid;
-				// if (sendto(s, &buf, sizeof(buf), 0, (const sockaddr*)&si_other, slen) < 0) {
-				// 	LOG_DEBUG("Error in sending RECONNECT_QP_REQ to " << "192.168.122.47");
-				// }
-				// else {
-				// 	LOG_TRACE("Sent RECONNECT_QP_REQ to " << "192.168.122.47");
-				// }
+				buf.src_qpn = test_qp->qp_num;
+				buf.dest_qpn = request->qpn;
+				buf.lid = ffr->rdma_data.ib_port_attr.lid;
+				buf.gid = ffr->rdma_data.ib_gid;
+
+				LOG_DEBUG("Before send");
+				uint8_t gid[16];
+				memcpy(gid, &(ffr->rdma_data.ib_gid), 16);
+				uint8_t *p = gid;
+				fprintf(stdout, "Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+								p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+
+				if (sendto(s, &buf, sizeof(buf), 0, (const sockaddr*)&si_other, slen) < 0) {
+					LOG_DEBUG("Error in sending RECONNECT_QP_REQ to " << "192.168.122.68");
+				} else {
+					LOG_TRACE("Sent RECONNECT_QP_REQ to " << "192.168.122.47");
+				}
+				LOG_DEBUG("向对端 Router 发送重建 QP 连接的请求 over");
+
+
+				int remote_qpn;
+				if (recvfrom(s, &remote_qpn, sizeof(remote_qpn), 0, (sockaddr*)&si_other, &slen)==-1) {
+					LOG_DEBUG("Error in receiving RECONNECT_QP_RSP");
+				} else {
+					LOG_DEBUG("Received RECONNECT_QP_RSP: remote_qpn=" << remote_qpn);
+				}
+
 				// close(s);
 
-				// LOG_DEBUG("向对端 Router 发送重建 QP 连接的请求 over");
+				move_qp_to_init(test_qp);
+				LOG_DEBUG("move_qp_to_init over");
+				struct ib_conn_data dest;
+				dest.out_reads = 1;
+				dest.psn = 0;
+				dest.lid = request->lid;
+				// dest.qpn = request->qpn;
+				dest.qpn = remote_qpn;
+				dest.gid = request->gid;
+				move_qp_to_rtr(test_qp, &dest);
+				LOG_DEBUG("move_qp_to_rtr over");
+				move_qp_to_rts(test_qp);
+				LOG_DEBUG("move_qp_to_rts over");
+
+				ffr->qp_map[test_qp->handle] = test_qp;
+				ffr->qp_handle_map[request->qp_handle] = test_qp->handle;
 
 
+				struct IBV_RESTORE_QP_RSP *response = (struct IBV_RESTORE_QP_RSP *)rsp;
+				std::stringstream ss;
+				ss << "qp" << test_qp->handle;
+				ShmPiece* sp = ffr->initCtrlShm(ss.str().c_str());
+				ffr->qp_shm_map[test_qp->handle] = sp;
+				strcpy(response->shm_name, sp->name.c_str());
 
-
-				// struct IBV_RESTORE_QP_RSP *response = (struct IBV_RESTORE_QP_RSP *)rsp;
-				// std::stringstream ss;
-				// ss << "qp" << test_qp->handle;
-				// ShmPiece* sp = ffr->initCtrlShm(ss.str().c_str());
-				// ffr->qp_shm_map[test_qp->handle] = sp;
-				// strcpy(response->shm_name, sp->name.c_str());
-
-				// size = sizeof(struct IBV_RESTORE_QP_RSP);
+				size = sizeof(struct IBV_RESTORE_QP_RSP);
 			}
 				break;
 			default:
@@ -1139,9 +1165,6 @@ void* udp_mr_map(void* param) {
 	socklen_t slen = sizeof(si_other);
 	struct Router *ffr = ((struct HandlerArgs *)param)->ffr;
 	int s;
-	// char buf[1400];
-	// struct IBV_REG_MR_MAPPING_REQ* p;
-	// p = (struct IBV_REG_MR_MAPPING_REQ*)buf;
 	
 	if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
 		LOG_ERROR("udp_mr_map: Error in creating socket for UDP server");
@@ -1197,7 +1220,7 @@ void* udp_restore(void* param) {
 	}
 	memset(&si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(RSTORE_PORT);
+	si_me.sin_port = htons(RESTORE_PORT);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(s, (const sockaddr*)&si_me, sizeof(si_me)) < 0){
 		LOG_ERROR("udp_restore: Error in binding UDP port");
@@ -1211,19 +1234,91 @@ void* udp_restore(void* param) {
 			LOG_DEBUG("udp_restore: Received RECONNECT_QP_REQ from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
 			Router *ffr = ((struct HandlerArgs *)param)->ffr;
 			// int qp_handle = ffr->getHandle(IBV_QP, buf.dest_qpn);
-			ibv_qp *qp = ffr->qp_map[3];
+			ibv_qp *origin_qp, *new_qp;
+			int qp_handle, pd_handle;
+			ibv_qp_attr attr;
+			ibv_qp_init_attr init_attr, new_init_attr;
+			memset(&attr, 0, sizeof attr);
+			memset(&init_attr, 0, sizeof init_attr);
+			for (int i = 0; i < MAP_SIZE; i++) {
+				origin_qp = ffr->qp_map[i];
+				if (origin_qp != NULL && origin_qp->qp_num == buf.dest_qpn) {
+					LOG_DEBUG("udp_restore: find origin_qp");
+					qp_handle = origin_qp->handle;
+					pd_handle = origin_qp->pd->handle;
+					ibv_query_qp(origin_qp, &attr, ~0, &init_attr);
+					LOG_DEBUG("udp_restore: origin_qp->send_cq->handle=" << origin_qp->send_cq->handle);
+					LOG_DEBUG("udp_restore: origin_qp->recv_cq->handle=" << origin_qp->recv_cq->handle);
+					break;
+				}
+			}
 
-			move_qp_to_rst(qp);
-			move_qp_to_init(qp);
+			ibv_destroy_qp(origin_qp);
+
+			LOG_DEBUG("init_attr: cap.max_send_wr=" << init_attr.cap.max_send_wr);
+			LOG_DEBUG("init_attr: cap.max_recv_wr=" << init_attr.cap.max_recv_wr);
+			LOG_DEBUG("init_attr: cap.max_send_sge=" << init_attr.cap.max_send_sge);
+			LOG_DEBUG("init_attr: cap.max_recv_sge=" << init_attr.cap.max_recv_sge);
+			LOG_DEBUG("init_attr: cap.max_inline_data=" << init_attr.cap.max_inline_data);
+			LOG_DEBUG("init_attr: qp_type=" << init_attr.qp_type);
+			LOG_DEBUG("init_attr: sq_sig_all=" << init_attr.sq_sig_all);
+			// LOG_DEBUG("init_attr: send_cq->handle=" << init_attr.send_cq->handle);
+			// LOG_DEBUG("init_attr: recv_cq->handle=" << init_attr.recv_cq->handle);
+			// memcpy(&new_init_attr, &init_attr, sizeof(init_attr));
+			// new_init_attr.send_cq = ffr->cq_map[init_attr.send_cq->handle];
+			// new_init_attr.recv_cq = ffr->cq_map[init_attr.recv_cq->handle];
+			// new_init_attr.srq = NULL;
+			// new_init_attr.qp_context = NULL;
+
+			memset(&new_init_attr, 0, sizeof(new_init_attr));
+			new_init_attr.qp_type = IBV_QPT_RC;
+			new_init_attr.sq_sig_all = 1;
+			new_init_attr.send_cq = ffr->cq_map[1];
+			new_init_attr.recv_cq = ffr->cq_map[1];
+			new_init_attr.cap.max_send_wr = 1;
+			new_init_attr.cap.max_recv_wr = 1;
+			new_init_attr.cap.max_send_sge = 1;
+			new_init_attr.cap.max_recv_sge = 1;
+			new_qp = ibv_create_qp(ffr->pd_map[pd_handle],  &new_init_attr);
+			if(!new_qp) {
+				LOG_ERROR("udp_restore: failed to create QP\n");
+			}
+			LOG_DEBUG("udp_restore: create qp over");
+
+			// 发送本端 QP 信息给对方
+			LOG_DEBUG("udp_restore: 发送本端 QP 信息给对方");
+			if (sendto(s, &(new_qp->qp_num), sizeof(new_qp->qp_num), 0, (const sockaddr*)&si_other, slen)==-1) {
+				LOG_DEBUG("udp_restore: Error in sending RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			} else {
+				LOG_DEBUG("udp_restore: Sent RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			}
+
+			// move_qp_to_init(new_qp, &attr);
+			// LOG_DEBUG("move_qp_to_init over");
+			// struct ib_conn_data dest;
+			// dest.lid = buf.lid;
+			// dest.qpn = buf.src_qpn;
+			// dest.gid = buf.gid;
+			// move_qp_to_rtr(new_qp, &dest, &attr);
+			// LOG_DEBUG("move_qp_to_rtr over");
+			// move_qp_to_rts(new_qp, &attr);
+			// LOG_DEBUG("move_qp_to_rts over");
+
+			move_qp_to_init(new_qp);
+			LOG_DEBUG("move_qp_to_init over");
 			struct ib_conn_data dest;
 			dest.out_reads = 1;
 			dest.psn = 0;
 			dest.lid = buf.lid;
 			dest.qpn = buf.src_qpn;
 			dest.gid = buf.gid;
-			move_qp_to_rtr(qp, &dest);
-			move_qp_to_rts(qp);
+			move_qp_to_rtr(new_qp, &dest);
+			LOG_DEBUG("move_qp_to_rtr over");
+			move_qp_to_rts(new_qp);
+			LOG_DEBUG("move_qp_to_rts over");
 
+			ffr->qp_map[new_qp->handle] = new_qp;
+			ffr->qp_handle_map[qp_handle] = new_qp->handle;
 		}
 	}
 	return NULL;

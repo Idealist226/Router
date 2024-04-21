@@ -13,7 +13,7 @@
 // #include <rdma/rdma_cma.h>
 
 #define MR_MAP_PORT 11231
-#define RSTORE_PORT 11232
+#define RESTORE_PORT 11232
 #define HOST_NUM 2
 
 const char HOST_LIST[HOST_NUM][16] = {
