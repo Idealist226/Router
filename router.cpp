@@ -1085,12 +1085,12 @@ void HandleRequest(struct HandlerArgs *args)
 				LOG_DEBUG("向对端 Router 发送重建 QP 连接的请求 over");
 
 
-				int remote_qpn;
-				if (recvfrom(s, &remote_qpn, sizeof(remote_qpn), 0, (sockaddr*)&si_other, &slen)==-1) {
-					LOG_DEBUG("Error in receiving RECONNECT_QP_RSP");
-				} else {
-					LOG_DEBUG("Received RECONNECT_QP_RSP: remote_qpn=" << remote_qpn);
-				}
+				// int remote_qpn;
+				// if (recvfrom(s, &remote_qpn, sizeof(remote_qpn), 0, (sockaddr*)&si_other, &slen)==-1) {
+				// 	LOG_DEBUG("Error in receiving RECONNECT_QP_RSP");
+				// } else {
+				// 	LOG_DEBUG("Received RECONNECT_QP_RSP: remote_qpn=" << remote_qpn);
+				// }
 
 				// close(s);
 
@@ -1100,8 +1100,8 @@ void HandleRequest(struct HandlerArgs *args)
 				dest.out_reads = 1;
 				dest.psn = 0;
 				dest.lid = request->lid;
-				// dest.qpn = request->qpn;
-				dest.qpn = remote_qpn;
+				dest.qpn = request->qpn;
+				// dest.qpn = remote_qpn;
 				dest.gid = request->gid;
 				move_qp_to_rtr(test_qp, &dest);
 				LOG_DEBUG("move_qp_to_rtr over");
@@ -1253,45 +1253,45 @@ void* udp_restore(void* param) {
 				}
 			}
 
-			ibv_destroy_qp(origin_qp);
+			// ibv_destroy_qp(origin_qp);
 
-			LOG_DEBUG("init_attr: cap.max_send_wr=" << init_attr.cap.max_send_wr);
-			LOG_DEBUG("init_attr: cap.max_recv_wr=" << init_attr.cap.max_recv_wr);
-			LOG_DEBUG("init_attr: cap.max_send_sge=" << init_attr.cap.max_send_sge);
-			LOG_DEBUG("init_attr: cap.max_recv_sge=" << init_attr.cap.max_recv_sge);
-			LOG_DEBUG("init_attr: cap.max_inline_data=" << init_attr.cap.max_inline_data);
-			LOG_DEBUG("init_attr: qp_type=" << init_attr.qp_type);
-			LOG_DEBUG("init_attr: sq_sig_all=" << init_attr.sq_sig_all);
-			// LOG_DEBUG("init_attr: send_cq->handle=" << init_attr.send_cq->handle);
-			// LOG_DEBUG("init_attr: recv_cq->handle=" << init_attr.recv_cq->handle);
-			// memcpy(&new_init_attr, &init_attr, sizeof(init_attr));
-			// new_init_attr.send_cq = ffr->cq_map[init_attr.send_cq->handle];
-			// new_init_attr.recv_cq = ffr->cq_map[init_attr.recv_cq->handle];
-			// new_init_attr.srq = NULL;
-			// new_init_attr.qp_context = NULL;
+			// LOG_DEBUG("init_attr: cap.max_send_wr=" << init_attr.cap.max_send_wr);
+			// LOG_DEBUG("init_attr: cap.max_recv_wr=" << init_attr.cap.max_recv_wr);
+			// LOG_DEBUG("init_attr: cap.max_send_sge=" << init_attr.cap.max_send_sge);
+			// LOG_DEBUG("init_attr: cap.max_recv_sge=" << init_attr.cap.max_recv_sge);
+			// LOG_DEBUG("init_attr: cap.max_inline_data=" << init_attr.cap.max_inline_data);
+			// LOG_DEBUG("init_attr: qp_type=" << init_attr.qp_type);
+			// LOG_DEBUG("init_attr: sq_sig_all=" << init_attr.sq_sig_all);
+			// // LOG_DEBUG("init_attr: send_cq->handle=" << init_attr.send_cq->handle);
+			// // LOG_DEBUG("init_attr: recv_cq->handle=" << init_attr.recv_cq->handle);
+			// // memcpy(&new_init_attr, &init_attr, sizeof(init_attr));
+			// // new_init_attr.send_cq = ffr->cq_map[init_attr.send_cq->handle];
+			// // new_init_attr.recv_cq = ffr->cq_map[init_attr.recv_cq->handle];
+			// // new_init_attr.srq = NULL;
+			// // new_init_attr.qp_context = NULL;
 
-			memset(&new_init_attr, 0, sizeof(new_init_attr));
-			new_init_attr.qp_type = IBV_QPT_RC;
-			new_init_attr.sq_sig_all = 1;
-			new_init_attr.send_cq = ffr->cq_map[1];
-			new_init_attr.recv_cq = ffr->cq_map[1];
-			new_init_attr.cap.max_send_wr = 1;
-			new_init_attr.cap.max_recv_wr = 1;
-			new_init_attr.cap.max_send_sge = 1;
-			new_init_attr.cap.max_recv_sge = 1;
-			new_qp = ibv_create_qp(ffr->pd_map[pd_handle],  &new_init_attr);
-			if(!new_qp) {
-				LOG_ERROR("udp_restore: failed to create QP\n");
-			}
-			LOG_DEBUG("udp_restore: create qp over");
+			// memset(&new_init_attr, 0, sizeof(new_init_attr));
+			// new_init_attr.qp_type = IBV_QPT_RC;
+			// new_init_attr.sq_sig_all = 1;
+			// new_init_attr.send_cq = ffr->cq_map[1];
+			// new_init_attr.recv_cq = ffr->cq_map[1];
+			// new_init_attr.cap.max_send_wr = 1;
+			// new_init_attr.cap.max_recv_wr = 1;
+			// new_init_attr.cap.max_send_sge = 1;
+			// new_init_attr.cap.max_recv_sge = 1;
+			// new_qp = ibv_create_qp(ffr->pd_map[pd_handle],  &new_init_attr);
+			// if(!new_qp) {
+			// 	LOG_ERROR("udp_restore: failed to create QP\n");
+			// }
+			// LOG_DEBUG("udp_restore: create qp over");
 
-			// 发送本端 QP 信息给对方
-			LOG_DEBUG("udp_restore: 发送本端 QP 信息给对方");
-			if (sendto(s, &(new_qp->qp_num), sizeof(new_qp->qp_num), 0, (const sockaddr*)&si_other, slen)==-1) {
-				LOG_DEBUG("udp_restore: Error in sending RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
-			} else {
-				LOG_DEBUG("udp_restore: Sent RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
-			}
+			// // 发送本端 QP 信息给对方
+			// LOG_DEBUG("udp_restore: 发送本端 QP 信息给对方");
+			// if (sendto(s, &(new_qp->qp_num), sizeof(new_qp->qp_num), 0, (const sockaddr*)&si_other, slen)==-1) {
+			// 	LOG_DEBUG("udp_restore: Error in sending RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			// } else {
+			// 	LOG_DEBUG("udp_restore: Sent RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			// }
 
 			// move_qp_to_init(new_qp, &attr);
 			// LOG_DEBUG("move_qp_to_init over");
@@ -1304,7 +1304,8 @@ void* udp_restore(void* param) {
 			// move_qp_to_rts(new_qp, &attr);
 			// LOG_DEBUG("move_qp_to_rts over");
 
-			move_qp_to_init(new_qp);
+			move_qp_to_rst(origin_qp);
+			move_qp_to_init(origin_qp);
 			LOG_DEBUG("move_qp_to_init over");
 			struct ib_conn_data dest;
 			dest.out_reads = 1;
@@ -1312,13 +1313,13 @@ void* udp_restore(void* param) {
 			dest.lid = buf.lid;
 			dest.qpn = buf.src_qpn;
 			dest.gid = buf.gid;
-			move_qp_to_rtr(new_qp, &dest);
+			move_qp_to_rtr(origin_qp, &dest);
 			LOG_DEBUG("move_qp_to_rtr over");
-			move_qp_to_rts(new_qp);
+			move_qp_to_rts(origin_qp);
 			LOG_DEBUG("move_qp_to_rts over");
 
-			ffr->qp_map[new_qp->handle] = new_qp;
-			ffr->qp_handle_map[qp_handle] = new_qp->handle;
+			// ffr->qp_map[new_qp->handle] = new_qp;
+			// ffr->qp_handle_map[qp_handle] = new_qp->handle;
 		}
 	}
 	return NULL;
