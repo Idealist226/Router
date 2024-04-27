@@ -1050,6 +1050,7 @@ void HandleRequest(struct HandlerArgs *args)
 				memset(&si_other, 0, sizeof(si_other));
 				si_other.sin_family = AF_INET;
 				si_other.sin_port = htons(RESTORE_PORT);
+				// TODO: change the IP address
 				if (inet_aton("192.168.122.68", &si_other.sin_addr) == 0) {
 					LOG_ERROR("Error in creating socket for UDP client other.");
 				}
@@ -1231,6 +1232,7 @@ void* udp_restore(void* param) {
 			LOG_DEBUG("udp_restore: Error in receiving UDP packets");
 			return NULL;
 		} else {
+			// TODO: 判断如果不是发给自己的，就不做处理
 			LOG_DEBUG("udp_restore: Received RECONNECT_QP_REQ from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
 			Router *ffr = ((struct HandlerArgs *)param)->ffr;
 			// int qp_handle = ffr->getHandle(IBV_QP, buf.dest_qpn);
@@ -1246,6 +1248,7 @@ void* udp_restore(void* param) {
 					LOG_DEBUG("udp_restore: find origin_qp");
 					qp_handle = origin_qp->handle;
 					pd_handle = origin_qp->pd->handle;
+					// TODO: 看需要哪些 qp 的数据，查找出来
 					ibv_query_qp(origin_qp, &attr, ~0, &init_attr);
 					LOG_DEBUG("udp_restore: origin_qp->send_cq->handle=" << origin_qp->send_cq->handle);
 					LOG_DEBUG("udp_restore: origin_qp->recv_cq->handle=" << origin_qp->recv_cq->handle);
@@ -1270,6 +1273,8 @@ void* udp_restore(void* param) {
 			// new_init_attr.srq = NULL;
 			// new_init_attr.qp_context = NULL;
 
+			// TODO: 尝试是否可以不用 create a new qp，而是直接转换状态？先转换为 RST
+			// TODO: restore 的状态最后不一定是 RTS，需要根据原来 QP 的状态来决定
 			memset(&new_init_attr, 0, sizeof(new_init_attr));
 			new_init_attr.qp_type = IBV_QPT_RC;
 			new_init_attr.sq_sig_all = 1;
