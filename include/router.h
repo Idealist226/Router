@@ -16,6 +16,12 @@
 #define RESTORE_PORT 11232
 #define HOST_NUM 2
 
+// #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+
+// #define container_of(ptr, TYPE, MEMBER) ({          \
+//     const typeof( ((TYPE *)0)->MEMBER ) *__mptr = (ptr);    \
+//     (TYPE *)( (char *)__mptr - offsetof(TYPE, MEMBER) );})
+
 const char HOST_LIST[HOST_NUM][16] = {
 	"192.168.122.47",
 	"192.168.122.68"

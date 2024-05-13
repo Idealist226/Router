@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "shared_memory.h"
+#include "include/shared_memory.h"
+#include "include/log.h"
 
 ShmPiece::ShmPiece(const char* name, int size)
 {

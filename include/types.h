@@ -73,6 +73,9 @@ typedef enum RDMA_FUNCTION_CALL
 	IBV_MALLOC,
 	IBV_FREE,
 
+	IBV_DUMP_OBJECT,
+	IBV_RESTORE_QP,
+
 	// [TODO]
 	IBV_RESIZE_CQ,
 
@@ -98,8 +101,6 @@ typedef enum RDMA_FUNCTION_CALL
 	CM_SET_OPTION,
 	CM_MIGRATE_ID,
 	CM_DISCONNECT,
-
-	IBV_RESTORE_QP,
 
 	// Freeflow Socket
 	SOCKET_SOCKET,
@@ -786,6 +787,93 @@ struct SOCKET_CONNECT_REQ
 struct SOCKET_CONNECT_RSP
 {
 		int ret;
+};
+
+enum ib_uverbs_object_type {
+	IBV_OBJECT_PD,
+	IBV_OBJECT_CQ,
+	IBV_OBJECT_QP,
+	IBV_OBJECT_MR,
+};
+
+struct ibv_dump_object {
+	uint32_t type;
+	uint32_t size;
+	uint32_t handle;
+} __attribute__((__packed__));
+
+struct ibv_dump_pd {
+	struct ibv_dump_object obj;
+} __attribute__((__packed__));
+
+struct ibv_dump_cq {
+	struct ibv_dump_object obj;
+	int cqe;
+	// struct ibv_comp_channel *channel;
+	// int comp_vector;
+} __attribute__((__packed__));
+
+struct ibv_dump_qp {
+	struct ibv_dump_object obj;
+
+	/* ibv_qp */
+	uint32_t pd_handle;
+	uint32_t qp_num;
+	enum ibv_qp_state state;
+	enum ibv_qp_type qp_type;
+	uint32_t send_cq_handle;
+	uint32_t recv_cq_handle;
+
+	/* ibv_qp_init_attr */
+	int sq_sig_all;
+
+	/* ibv_qp_attr */
+	struct ibv_qp_attr attr;
+	// enum ibv_mtu		path_mtu;
+	// enum ibv_mig_state	path_mig_state;
+	// uint32_t		qkey;
+	// uint32_t		rq_psn;
+	// uint32_t		sq_psn;
+	// uint32_t		dest_qp_num;
+	// unsigned int		qp_access_flags;
+	// struct ibv_ah_attr	ah_attr;
+	// struct ibv_ah_attr	alt_ah_attr;
+	// uint16_t		pkey_index;
+	// uint16_t		alt_pkey_index;
+	// uint8_t			en_sqd_async_notify;
+	// uint8_t			sq_draining;
+	// uint8_t			max_rd_atomic;
+	// uint8_t			max_dest_rd_atomic;
+	// uint8_t			min_rnr_timer;
+	// uint8_t			port_num;
+	// uint8_t			timeout;
+	// uint8_t			retry_cnt;
+	// uint8_t			rnr_retry;
+	// uint8_t			alt_port_num;
+	// uint8_t			alt_timeout;
+	// uint32_t		rate_limit;
+} __attribute__((__packed__));
+
+struct ibv_dump_mr {
+	struct ibv_dump_object obj;
+	uint32_t pd_handle;
+	void* addr;
+	size_t length;
+} __attribute__((__packed__));
+
+struct IBV_DUMP_OBJECT_REQ
+{
+
+};
+
+struct IBV_DUMP_OBJECT_RSP
+{
+	uint32_t pd_num;
+	ibv_dump_pd *dump_pds;
+	uint32_t cq_num;
+	ibv_dump_cq *dump_cqs;
+	uint32_t qp_num;
+	ibv_dump_qp *dump_qps;
 };
 
 struct IBV_RESTORE_QP_REQ

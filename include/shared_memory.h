@@ -19,9 +19,6 @@
 #include <map>
 #include <string>
 
-#include "constant.h"
-#include "log.h"
-
 class ShmPiece
 {
 public:

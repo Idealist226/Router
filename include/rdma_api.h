@@ -4,8 +4,6 @@
 #ifndef RDMA_API_H
 #define RDMA_API_H
 
-#include "constant.h"
-
 #include <infiniband/verbs.h>
 // #include <infiniband/verbs_exp.h>
 // #include <infiniband/arch.h>
