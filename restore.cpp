@@ -124,3 +124,111 @@ int ib_uverbs_restore_qp(Router *ffr, int client_sock, void *req_body, void *rsp
 
 	return sizeof(struct IBV_RESTORE_QP_RSP);
 }
+
+int ib_uverbs_restore_pd(Router *ffr, ibv_dump_object *obj)
+{
+	// struct ibv_pd *pd = ibv_alloc_pd(ffr->rdma_data.ib_context);
+	// if (pd->handle >= MAP_SIZE) {
+	// 	LOG_ERROR("PD handle is no less than MAX_QUEUE_MAP_SIZE. pd_handle=" << pd->handle);
+	// 	return -1;
+	// } else {
+	// 	ffr->pd_map[pd->handle] = pd;
+	// 	ffr->pd_handle_map[obj->handle] = pd->handle;
+	// }
+	LOG_DEBUG("ib_uverbs_restore_pd: pd_handle=" << obj->handle);
+	return sizeof(struct ibv_dump_pd);
+}
+
+int ib_uverbs_restore_cq(Router *ffr, ibv_dump_object *obj)
+{
+	struct ibv_dump_cq *dump_cq = container_of(obj, struct ibv_dump_cq, obj);
+
+	// // TODO: 增加 channel 和 comp_vector 的支持
+	// struct ibv_cq *cq = ibv_create_cq(ffr->rdma_data.ib_context, dump_cq->cqe, NULL, NULL, 0);
+	// if (cq->handle >= MAP_SIZE) {
+	// 	LOG_ERROR("CQ handle (" << cq->handle << ") is no less than MAX_QUEUE_MAP_SIZE.");
+	// 	return -1;
+	// } else {
+	// 	ffr->cq_map[cq->handle] = cq;
+	// 	ffr->cq_handle_map[obj->handle] = cq->handle;
+	// }
+	LOG_DEBUG("ib_uverbs_restore_cq: cq_handle=" << obj->handle);
+	LOG_DEBUG("ib_uverbs_restore_cq: cqe=" << dump_cq->cqe);
+	return sizeof(*dump_cq);
+}
+
+int ib_uverbs_restore_qp(Router *ffr, ibv_dump_object *obj)
+{
+	struct ibv_dump_qp *dump_qp = container_of(obj, struct ibv_dump_qp, obj);
+	LOG_DEBUG("ib_uverbs_restore_qp: qp_handle=" << obj->handle);
+	LOG_DEBUG("ib_uverbs_restore_qp: pd_handle=" << dump_qp->pd_handle);
+	LOG_DEBUG("ib_uverbs_restore_qp: qp_num=" << dump_qp->qp_num);
+	LOG_DEBUG("ib_uverbs_restore_qp: state=" << dump_qp->state);
+	LOG_DEBUG("ib_uverbs_restore_qp: qp_type=" << dump_qp->qp_type);
+	LOG_DEBUG("ib_uverbs_restore_qp: send_cq_handle=" << dump_qp->send_cq_handle);
+	LOG_DEBUG("ib_uverbs_restore_qp: recv_cq_handle=" << dump_qp->recv_cq_handle);
+
+	LOG_DEBUG("ib_uverbs_restore_qp: cap.max_send_wr=" << dump_qp->attr.cap.max_send_wr);
+	LOG_DEBUG("ib_uverbs_restore_qp: cap.max_recv_wr=" << dump_qp->attr.cap.max_recv_wr);
+	LOG_DEBUG("ib_uverbs_restore_qp: cap.max_send_sge=" << dump_qp->attr.cap.max_send_sge);
+	LOG_DEBUG("ib_uverbs_restore_qp: cap.max_recv_sge=" << dump_qp->attr.cap.max_recv_sge);
+	LOG_DEBUG("ib_uverbs_restore_qp: cap.max_inline_data=" << dump_qp->attr.cap.max_inline_data);
+
+	LOG_DEBUG("ib_uverbs_restore_qp: dest_qp_num=" << dump_qp->attr.dest_qp_num);
+	return sizeof(*dump_qp);
+}
+
+int ib_uverbs_restore_mr(Router *ffr, ibv_dump_object *obj)
+{
+	struct ibv_dump_mr *dump_mr = container_of(obj, struct ibv_dump_mr, obj);
+	LOG_DEBUG("ib_uverbs_restore_mr: mr_handle=" << obj->handle);
+	LOG_DEBUG("ib_uverbs_restore_mr: pd_handle=" << dump_mr->pd_handle);
+	LOG_DEBUG("ib_uverbs_restore_mr: addr=" << dump_mr->addr);
+	LOG_DEBUG("ib_uverbs_restore_mr: length=" << dump_mr->length);
+	return sizeof(*dump_mr);
+}
+
+int ib_uverbs_restore_objects(Router *ffr, int client_sock, void *req_body, void *rsp)
+{
+	LOG_TRACE("===RESTORE_OBJECTS===");
+
+	int ret = read(client_sock, req_body, sizeof(4*1024));
+	if (ret < 0) {
+		LOG_ERROR("CREATE_CQ: Failed to read the request body."); 
+		return -1;
+	}
+	LOG_DEBUG("ib_uverbs_restore_objects: Read " << ret << " bytes from client_sock.");
+
+	uint32_t obj_num = *(uint32_t *)req_body;
+	void *cur_obj = (char*)req_body + sizeof(obj_num);
+	for (int i = 0; i < obj_num; i++) {
+		struct ibv_dump_object *obj = (struct ibv_dump_object *)cur_obj;
+		LOG_DEBUG("Found obj of type: " << obj->type);
+		switch (obj->type) {
+			case IBV_OBJECT_PD:
+				ret = ib_uverbs_restore_pd(ffr, obj);
+				break;
+			case IBV_OBJECT_CQ:
+				ret = ib_uverbs_restore_cq(ffr, obj);
+				break;
+			case IBV_OBJECT_QP:
+				ret = ib_uverbs_restore_qp(ffr, obj);
+				break;
+			case IBV_OBJECT_MR:
+				ret = ib_uverbs_restore_mr(ffr, obj);
+				break;
+			default:
+				LOG_ERROR("Unknown object type: " << obj->type);
+				ret = -1;
+				break;
+		}
+		if (ret < 0) {
+			break;
+		}
+		cur_obj = (char*)cur_obj + ret;
+	}
+
+	struct IBV_RESTORE_OBJECTS_RSP *response = (IBV_RESTORE_OBJECTS_RSP*)rsp;
+	response->ret = ret < 0 ? -1 : 0;
+	return sizeof(*response);
+}

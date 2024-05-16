@@ -73,8 +73,8 @@ typedef enum RDMA_FUNCTION_CALL
 	IBV_MALLOC,
 	IBV_FREE,
 
-	IBV_DUMP_OBJECT,
-	IBV_RESTORE_QP,
+	IBV_DUMP_OBJECTS,
+	IBV_RESTORE_OBJECTS,
 
 	// [TODO]
 	IBV_RESIZE_CQ,
@@ -789,7 +789,7 @@ struct SOCKET_CONNECT_RSP
 		int ret;
 };
 
-enum ib_uverbs_object_type {
+enum ibv_object_type {
 	IBV_OBJECT_PD,
 	IBV_OBJECT_CQ,
 	IBV_OBJECT_QP,
@@ -823,6 +823,7 @@ struct ibv_dump_qp {
 	enum ibv_qp_type qp_type;
 	uint32_t send_cq_handle;
 	uint32_t recv_cq_handle;
+	uint32_t srq_handle;
 
 	/* ibv_qp_init_attr */
 	int sq_sig_all;
@@ -861,19 +862,9 @@ struct ibv_dump_mr {
 	size_t length;
 } __attribute__((__packed__));
 
-struct IBV_DUMP_OBJECT_REQ
+struct IBV_RESTORE_OBJECTS_RSP
 {
-
-};
-
-struct IBV_DUMP_OBJECT_RSP
-{
-	uint32_t pd_num;
-	ibv_dump_pd *dump_pds;
-	uint32_t cq_num;
-	ibv_dump_cq *dump_cqs;
-	uint32_t qp_num;
-	ibv_dump_qp *dump_qps;
+	int ret;
 };
 
 struct IBV_RESTORE_QP_REQ

@@ -369,10 +369,11 @@ void HandleRequest(struct HandlerArgs *args)
 			case IBV_POLL_CQ:
 				size = ib_uverbs_poll_cq(ffr, client_sock, req_body, rsp);
 				break;
-			case IBV_DUMP_OBJECT:
+			case IBV_DUMP_OBJECTS:
+				size = ib_uverbs_dump_objects(ffr, client_sock, req_body, rsp);
 				break;
-			case IBV_RESTORE_QP:
-				size = ib_uverbs_restore_qp(ffr, client_sock, req_body, rsp);
+			case IBV_RESTORE_OBJECTS:
+				size = ib_uverbs_restore_objects(ffr, client_sock, req_body, rsp);
 				break;
 			default:
 				break;
