@@ -22,8 +22,8 @@ const char HOST_LIST[HOST_NUM][16] = {
 };
 
 struct MR_SHM {
-    char* mr_ptr;
-    char* shm_ptr;
+    void* mr_ptr;
+    void* shm_ptr;
 };
 
 struct HandlerArgs {
@@ -40,13 +40,9 @@ public:
 	int pid_count;
 	struct ib_data rdma_data;
 	struct ibv_pd* pd_map[MAP_SIZE];
-	int pd_handle_map[MAP_SIZE];
 	struct ibv_cq* cq_map[MAP_SIZE];
-	int cq_handle_map[MAP_SIZE];
 	struct ibv_qp* qp_map[MAP_SIZE];
-	int qp_handle_map[MAP_SIZE];
 	struct ibv_mr* mr_map[MAP_SIZE];
-	int mr_handle_map[MAP_SIZE];
 	struct ibv_ah* ah_map[MAP_SIZE];
 	struct ibv_srq* srq_map[MAP_SIZE];
 	struct ibv_comp_channel* channel_map[MAP_SIZE];
@@ -54,15 +50,6 @@ public:
 	// struct rdma_cm_id* cm_id_map[MAP_SIZE];
 	
 	ShmPiece* shmr_map[MAP_SIZE];
-	ShmPiece* qp_shm_map[MAP_SIZE];
-	ShmPiece* cq_shm_map[MAP_SIZE];
-	// ShmPiece* srq_shm_map[MAP_SIZE];
-	// std::vector<uint32_t> qp_shm_vec;
-	// pthread_mutex_t qp_shm_vec_mtx;
-	// std::vector<uint32_t> cq_shm_vec;
-	// pthread_mutex_t cq_shm_vec_mtx;
-	// std::vector<uint32_t> srq_shm_vec;
-	// pthread_mutex_t srq_shm_vec_mtx;
 
 	std::map<uintptr_t, uintptr_t> uid_map;
 
@@ -95,7 +82,6 @@ public:
 	ShmPiece* addShmPiece(std::string shm_name, int mem_size);
 
 	ShmPiece* initCtrlShm(const char* tag);
-	int getHandle(enum RDMA_VERBS_OBJECT object, int handle);
 
 	uint32_t rdma_polling_interval;
 	uint8_t disable_rdma;

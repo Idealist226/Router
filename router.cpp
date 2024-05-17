@@ -180,27 +180,6 @@ ShmPiece* Router::addShmPiece(std::string shm_name, int mem_size)
     return sp;
 }
 
-int Router::getHandle(enum RDMA_VERBS_OBJECT object, int handle)
-{
-	switch (object) {
-		case IBV_PD:
-			return this->pd_handle_map[handle];
-			break;
-		case IBV_CQ:
-			return this->cq_handle_map[handle];
-			break;
-		case IBV_QP:
-			return this->qp_handle_map[handle];
-			break;
-		case IBV_MR:
-			return this->mr_handle_map[handle];
-			break;
-		default:
-			break;
-	}
-	return -1;
-}
-
 void Router::start()
 {
 	LOG_INFO("Router Starting... ");
@@ -280,8 +259,7 @@ void HandleRequest(struct HandlerArgs *args)
 	if (ffr->disable_rdma) {
 		req_body = (char*)malloc(0xff);
 		rsp = (char*)malloc(0xff);
-	}
-	else {
+	} else {
 		req_body = (char*)malloc(0xfffff);
 		rsp = (char*)malloc(0xfffff);
 	}
@@ -304,7 +282,7 @@ void HandleRequest(struct HandlerArgs *args)
 
 		switch (header.func) {
 			case IBV_GET_CONTEXT: {
-				LOG_DEBUG("GET_CONTEXT");
+				LOG_DEBUG("===GET_CONTEXT===");
 				//rsp = malloc(sizeof(struct IBV_GET_CONTEXT_RSP));
 				size = sizeof(struct IBV_GET_CONTEXT_RSP);
 				((struct IBV_GET_CONTEXT_RSP *)rsp)->async_fd = ffr->rdma_data.ib_context->async_fd;
@@ -315,7 +293,7 @@ void HandleRequest(struct HandlerArgs *args)
 				size = ib_uverbs_alloc_pd(ffr, rsp);
 				break;
 			case IBV_QUERY_PORT: {
-				LOG_DEBUG("QUERY_PORT client_id=" << client_sock);
+				LOG_DEBUG("===QUERY_PORT===");
 				//req_body = malloc(sizeof(struct IBV_QUERY_PORT_REQ));
 				if (read(client_sock, req_body, sizeof(struct IBV_QUERY_PORT_REQ)) < sizeof(struct IBV_QUERY_PORT_REQ)) {
 					LOG_ERROR("Failed to read request body.");
@@ -349,9 +327,6 @@ void HandleRequest(struct HandlerArgs *args)
 				break;
 			case IBV_REG_MR:
 				size = ib_uverbs_reg_mr(ffr, client_sock, req_body, rsp, header.client_id);
-				break;
-			case IBV_REG_MR_MAPPING:
-				size = ib_uverbs_reg_mr_mapping(ffr, client_sock, req_body, rsp);
 				break;
 			case IBV_DEREG_MR:
 				size = ib_uverbs_dereg_mr(ffr, client_sock, req_body, rsp);
@@ -418,12 +393,13 @@ kill:
 }
 
 void* udp_mr_map(void* param) {
-	LOG_DEBUG("udp_mr_map: started");
+	LOG_TRACE("===udp_mr_map: started===");
+
+	int s;
 	struct sockaddr_in si_me, si_other;
 	struct IBV_REG_MR_MAPPING_REQ buf;
 	socklen_t slen = sizeof(si_other);
 	struct Router *ffr = ((struct HandlerArgs *)param)->ffr;
-	int s;
 	
 	if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
 		LOG_ERROR("udp_mr_map: Error in creating socket for UDP server");
@@ -442,34 +418,34 @@ void* udp_mr_map(void* param) {
 			LOG_DEBUG("udp_mr_map: Error in receiving UDP packets");
 			return NULL;
 		}
-		else {
-			struct MR_SHM mr_shm;
-			mr_shm.mr_ptr = buf.mr_ptr;
-			mr_shm.shm_ptr = buf.shm_ptr;
+		
+		struct MR_SHM mr_shm;
+		mr_shm.mr_ptr = buf.mr_ptr;
+		mr_shm.shm_ptr = buf.shm_ptr;
 
-			pthread_mutex_lock(&(ffr->rkey_mr_shm_mtx));
-			ffr->rkey_mr_shm[buf.key] = mr_shm;
-			pthread_mutex_unlock(&(ffr->rkey_mr_shm_mtx));
+		pthread_mutex_lock(&(ffr->rkey_mr_shm_mtx));
+		ffr->rkey_mr_shm[buf.key] = mr_shm;
+		pthread_mutex_unlock(&(ffr->rkey_mr_shm_mtx));
 
-			char src_str[INET_ADDRSTRLEN];
-			inet_ntop(AF_INET, &si_other.sin_addr, src_str, sizeof(src_str));
-			int self_p = ntohs(si_other.sin_port);
-			LOG_DEBUG("udp_mr_map: Receive MR Mapping: rkey=" << (uint32_t)(buf.key) << " mr=" << (uint64_t)(buf.mr_ptr) << " shm=" << (uint64_t)(buf.shm_ptr) << " from " << src_str << ":" << self_p);
+		char src_str[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &si_other.sin_addr, src_str, sizeof(src_str));
+		int self_p = ntohs(si_other.sin_port);
+		LOG_DEBUG("udp_mr_map: Receive MR Mapping: rkey=" << (uint32_t)(buf.key) << " mr=" << (uint64_t)(buf.mr_ptr) << " shm=" << (uint64_t)(buf.shm_ptr) << " from " << src_str << ":" << self_p);
 
-			char ack[100];
-			sprintf(ack, "ack-%u", buf.key);
-			if (sendto(s, ack, 100, 0, (const sockaddr*)&si_other, slen)==-1) {
-				LOG_ERROR("udp_mr_map: Error in sending MR mapping to " << src_str);
-			}
+		char ack[100];
+		sprintf(ack, "ack-%u", buf.key);
+		if (sendto(s, ack, 100, 0, (const sockaddr*)&si_other, slen)==-1) {
+			LOG_ERROR("udp_mr_map: Error in sending MR mapping to " << src_str);
 		}
 	}
 	return NULL;
 }
 
 void* udp_restore(void* param) {
-	LOG_DEBUG("udp_restore: started");
-	struct sockaddr_in si_me, si_other;
+	LOG_TRACE("===udp_restore: started===");
+
 	int s;
+	struct sockaddr_in si_me, si_other;
 	socklen_t slen = sizeof(si_other);
 	IBV_RECONNECT_QP_REQ buf;
 	
@@ -485,104 +461,69 @@ void* udp_restore(void* param) {
 		LOG_ERROR("udp_restore: Error in binding UDP port");
 		return NULL;
 	}
+
 	while (1) {
-		if (recvfrom(s, &buf, sizeof(buf), 0, (sockaddr*)&si_other, &slen)==-1) {
-			LOG_DEBUG("udp_restore: Error in receiving UDP packets");
+		memset(&buf, 0, sizeof(buf));
+		if (recvfrom(s, &buf, sizeof(buf), 0, (sockaddr*)&si_other, &slen) < 0) {
+			LOG_ERROR("udp_restore: Error in receiving UDP packets");
 			return NULL;
-		} else {
-			// TODO: 判断如果不是发给自己的，就不做处理
-			LOG_DEBUG("udp_restore: Received RECONNECT_QP_REQ from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
-			Router *ffr = ((struct HandlerArgs *)param)->ffr;
-			// int qp_handle = ffr->getHandle(IBV_QP, buf.dest_qpn);
-			ibv_qp *origin_qp, *new_qp;
-			int qp_handle, pd_handle;
-			ibv_qp_attr attr;
-			ibv_qp_init_attr init_attr, new_init_attr;
-			memset(&attr, 0, sizeof attr);
-			memset(&init_attr, 0, sizeof init_attr);
-			for (int i = 0; i < MAP_SIZE; i++) {
-				origin_qp = ffr->qp_map[i];
-				if (origin_qp != NULL && origin_qp->qp_num == buf.dest_qpn) {
-					LOG_DEBUG("udp_restore: find origin_qp");
-					qp_handle = origin_qp->handle;
-					pd_handle = origin_qp->pd->handle;
-					// TODO: 看需要哪些 qp 的数据，查找出来
-					ibv_query_qp(origin_qp, &attr, ~0, &init_attr);
-					LOG_DEBUG("udp_restore: origin_qp->send_cq->handle=" << origin_qp->send_cq->handle);
-					LOG_DEBUG("udp_restore: origin_qp->recv_cq->handle=" << origin_qp->recv_cq->handle);
-					break;
-				}
-			}
-
-			ibv_destroy_qp(origin_qp);
-
-			LOG_DEBUG("init_attr: cap.max_send_wr=" << init_attr.cap.max_send_wr);
-			LOG_DEBUG("init_attr: cap.max_recv_wr=" << init_attr.cap.max_recv_wr);
-			LOG_DEBUG("init_attr: cap.max_send_sge=" << init_attr.cap.max_send_sge);
-			LOG_DEBUG("init_attr: cap.max_recv_sge=" << init_attr.cap.max_recv_sge);
-			LOG_DEBUG("init_attr: cap.max_inline_data=" << init_attr.cap.max_inline_data);
-			LOG_DEBUG("init_attr: qp_type=" << init_attr.qp_type);
-			LOG_DEBUG("init_attr: sq_sig_all=" << init_attr.sq_sig_all);
-			// LOG_DEBUG("init_attr: send_cq->handle=" << init_attr.send_cq->handle);
-			// LOG_DEBUG("init_attr: recv_cq->handle=" << init_attr.recv_cq->handle);
-			// memcpy(&new_init_attr, &init_attr, sizeof(init_attr));
-			// new_init_attr.send_cq = ffr->cq_map[init_attr.send_cq->handle];
-			// new_init_attr.recv_cq = ffr->cq_map[init_attr.recv_cq->handle];
-			// new_init_attr.srq = NULL;
-			// new_init_attr.qp_context = NULL;
-
-			// TODO: 尝试是否可以不用 create a new qp，而是直接转换状态？先转换为 RST
-			// TODO: restore 的状态最后不一定是 RTS，需要根据原来 QP 的状态来决定
-			memset(&new_init_attr, 0, sizeof(new_init_attr));
-			new_init_attr.qp_type = IBV_QPT_RC;
-			new_init_attr.sq_sig_all = 1;
-			new_init_attr.send_cq = ffr->cq_map[1];
-			new_init_attr.recv_cq = ffr->cq_map[1];
-			new_init_attr.cap.max_send_wr = 1;
-			new_init_attr.cap.max_recv_wr = 1;
-			new_init_attr.cap.max_send_sge = 1;
-			new_init_attr.cap.max_recv_sge = 1;
-			new_qp = ibv_create_qp(ffr->pd_map[pd_handle],  &new_init_attr);
-			if(!new_qp) {
-				LOG_ERROR("udp_restore: failed to create QP\n");
-			}
-			LOG_DEBUG("udp_restore: create qp over");
-
-			// 发送本端 QP 信息给对方
-			LOG_DEBUG("udp_restore: 发送本端 QP 信息给对方");
-			if (sendto(s, &(new_qp->qp_num), sizeof(new_qp->qp_num), 0, (const sockaddr*)&si_other, slen)==-1) {
-				LOG_DEBUG("udp_restore: Error in sending RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
-			} else {
-				LOG_DEBUG("udp_restore: Sent RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
-			}
-
-			// move_qp_to_init(new_qp, &attr);
-			// LOG_DEBUG("move_qp_to_init over");
-			// struct ib_conn_data dest;
-			// dest.lid = buf.lid;
-			// dest.qpn = buf.src_qpn;
-			// dest.gid = buf.gid;
-			// move_qp_to_rtr(new_qp, &dest, &attr);
-			// LOG_DEBUG("move_qp_to_rtr over");
-			// move_qp_to_rts(new_qp, &attr);
-			// LOG_DEBUG("move_qp_to_rts over");
-
-			move_qp_to_init(new_qp);
-			LOG_DEBUG("move_qp_to_init over");
-			struct ib_conn_data dest;
-			dest.out_reads = 1;
-			dest.psn = 0;
-			dest.lid = buf.lid;
-			dest.qpn = buf.src_qpn;
-			dest.gid = buf.gid;
-			move_qp_to_rtr(new_qp, &dest);
-			LOG_DEBUG("move_qp_to_rtr over");
-			move_qp_to_rts(new_qp);
-			LOG_DEBUG("move_qp_to_rts over");
-
-			ffr->qp_map[new_qp->handle] = new_qp;
-			ffr->qp_handle_map[qp_handle] = new_qp->handle;
 		}
+		LOG_DEBUG("udp_restore: Received RECONNECT_QP_REQ from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+
+		int qp_handle, pd_handle, i;
+		Router *ffr = ((struct HandlerArgs *)param)->ffr;
+		ibv_qp *origin_qp, *new_qp;
+		struct ibv_dump_qp dump_qp;
+
+		// 判断如果不是发给自己的，就不做处理
+		if (memcmp(&(ffr->rdma_data.ib_gid), &(buf.recv_gid), 16) != 0) {
+			LOG_DEBUG("udp_restore: It wasn't sent to me.");
+			int flag = -1;
+			if (sendto(s, &flag, sizeof(flag), 0, (const sockaddr*)&si_other, slen) < 0) {
+				LOG_ERROR("udp_restore: Error in sending -1 to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			} else {
+				LOG_DEBUG("udp_restore: Sent -1 to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+			}
+			continue;
+		}
+
+		// 查找 origin qp 并 dump 数据
+		for (i = 0; i < MAP_SIZE; i++) {
+			origin_qp = ffr->qp_map[i];
+			if (origin_qp != NULL && origin_qp->qp_num == buf.recv_qpn) {
+				LOG_DEBUG("udp_restore: find origin_qp");
+				ib_uverbs_dump_qp(&dump_qp.obj, origin_qp);
+				break;
+			}
+		}
+		if (i == MAP_SIZE || origin_qp == NULL) {
+			LOG_ERROR("udp_restore: not found origin_qp");
+			continue;
+		}
+
+		// 删除 origin qp
+		ibv_destroy_qp(origin_qp);
+
+		// TODO: 尝试是否可以不用 create a new qp，而是直接转换状态？先转换为 RST
+		// 创建新的 qp 和对端通信
+		new_qp = ib_uverbs_recreate_qp(ffr, &dump_qp);
+		if (new_qp == NULL) {
+			LOG_ERROR("udp_restore: not found origin_qp");
+			continue;
+		}
+
+		// 发送本端新 qp 信息给对方
+		LOG_DEBUG("udp_restore: 发送本端 QP 信息给对方");
+		if (sendto(s, &(new_qp->qp_num), sizeof(new_qp->qp_num), 0, (const sockaddr*)&si_other, slen) < 0) {
+			LOG_ERROR("udp_restore: Error in sending RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+		} else {
+			LOG_DEBUG("udp_restore: Sent RECONNECT_QP_RSP to " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port));
+		}
+
+		// 修改 qp 状态
+		dump_qp.attr.ah_attr.dlid = buf.send_lid;
+		dump_qp.attr.ah_attr.grh.dgid = buf.send_gid;
+		ib_uverbs_remodify_qp(&dump_qp, new_qp, buf.send_qpn);
 	}
 	return NULL;
 }

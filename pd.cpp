@@ -10,7 +10,6 @@ int ib_uverbs_alloc_pd(Router *ffr, void *rsp)
 		LOG_ERROR("PD handle is no less than MAX_QUEUE_MAP_SIZE. pd_handle=" << pd->handle); 
 	} else {
 		ffr->pd_map[pd->handle] = pd;
-		ffr->pd_handle_map[pd->handle] = pd->handle;
 	}
 	((struct IBV_ALLOC_PD_RSP *)rsp)->pd_handle = pd->handle;
 	LOG_DEBUG("Alloc PD: handle = " << pd->handle); 

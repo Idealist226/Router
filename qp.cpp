@@ -56,7 +56,6 @@ int ib_uverbs_create_qp(Router *ffr, int client_sock, void *req_body, void *rsp)
 		LOG_ERROR("[Warning] QP handle (" << qp->handle << ") is no less than MAX_QUEUE_MAP_SIZE.");
 	} else {
 		ffr->qp_map[qp->handle] = qp;
-		ffr->qp_handle_map[qp->handle] = qp->handle;
 	}
 
 	response->qp_num = qp->qp_num;
@@ -67,14 +66,6 @@ int ib_uverbs_create_qp(Router *ffr, int client_sock, void *req_body, void *rsp)
 	response->cap.max_recv_sge = init_attr.cap.max_recv_sge;
 	response->cap.max_inline_data = init_attr.cap.max_inline_data;
 
-	std::stringstream ss;
-	ss << "qp" << qp->handle;
-	ShmPiece* sp = ffr->initCtrlShm(ss.str().c_str());
-	ffr->qp_shm_map[qp->handle] = sp;
-	strcpy(response->shm_name, sp->name.c_str());
-	// pthread_mutex_lock(&ffr->qp_shm_vec_mtx);
-	// ffr->qp_shm_vec.push_back(qp->handle);
-	// pthread_mutex_unlock(&ffr->qp_shm_vec_mtx);
 	return sizeof(*response);
 }
 
@@ -89,9 +80,7 @@ int ib_uverbs_destroy_qp(Router *ffr, int client_sock, void *req_body, void *rsp
 		return -1;
 	}
 
-	int qp_handle = ffr->getHandle(IBV_QP, request->qp_handle);
-	LOG_DEBUG("Destroy QP: qp handle = " << qp_handle); 
-
+	int qp_handle = request->qp_handle;
 	struct ibv_qp *qp = ffr->qp_map[qp_handle];
 	if (qp == NULL) {
 		LOG_ERROR("Failed to get qp with qp_handle " << qp_handle);
@@ -100,17 +89,6 @@ int ib_uverbs_destroy_qp(Router *ffr, int client_sock, void *req_body, void *rsp
 
 	int ret = ibv_destroy_qp(qp);
 	ffr->qp_map[qp_handle] = NULL;
-
-	// pthread_mutex_lock(&ffr->qp_shm_vec_mtx);
-	// std::vector<uint32_t>::iterator position = std::find(ffr->qp_shm_vec.begin(), ffr->qp_shm_vec.end(), request->qp_handle);
-	// if (position != ffr->qp_shm_vec.end()) // == myVector.end() means the element was not found
-	// 	ffr->qp_shm_vec.erase(position);
-	// pthread_mutex_unlock(&ffr->qp_shm_vec_mtx); 
-
-	ShmPiece* sp = ffr->qp_shm_map[qp_handle];
-	if (sp)
-		delete sp;
-	ffr->qp_shm_map[qp_handle] = NULL;
 
 	//rsp = malloc(sizeof(struct IBV_DESTROY_QP_RSP));
 	((struct IBV_DESTROY_QP_RSP *)rsp)->ret = ret;
@@ -195,11 +173,9 @@ int ib_uverbs_post_send(Router *ffr, int client_sock, void *req_body, void *rsp,
 	struct ib_uverbs_post_send *post_send = (struct ib_uverbs_post_send*)req_body;
 	if (post_send->qp_handle >= MAP_SIZE) {
 		LOG_ERROR("[Warning] QP handle (" << post_send->qp_handle << ") is no less than MAX_QUEUE_MAP_SIZE.");
+		return -1;
 	} else {
-		int qp_handle = ffr->getHandle(IBV_QP, post_send->qp_handle);
-		LOG_DEBUG("IBV_POST_SEND qp_handle = " << qp_handle);
-		qp = ffr->qp_map[qp_handle];
-		// tb = ffr->tokenbucket[post_send->qp_handle];
+		qp = ffr->qp_map[post_send->qp_handle];
 	}
 
 	struct ibv_send_wr *wr = (struct ibv_send_wr*)((char*)req_body + sizeof(struct ib_uverbs_post_send));

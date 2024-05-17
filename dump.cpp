@@ -7,6 +7,7 @@ static struct ibv_pd *pd = NULL;
 static struct ibv_cq *cq = NULL;
 static struct ibv_qp *qp = NULL;
 static struct ibv_mr *mr = NULL;
+char *shm_name = NULL;
 
 static void ib_uverbs_dump_pd(struct ibv_dump_object *dump_obj)
 {
@@ -27,7 +28,8 @@ static void ib_uverbs_dump_cq(struct ibv_dump_object *dump_obj)
 	LOG_DEBUG("Dump cq: cqe=" << cq->cqe);
 }
 
-static void ib_uverbs_dump_qp(struct ibv_dump_object *dump_obj)
+// 不使用全局 qp 是为了将 ib_uverbs_dump_qp 设置为通用接口
+void ib_uverbs_dump_qp(struct ibv_dump_object *dump_obj, struct ibv_qp *qp)
 {
 	dump_obj->type = IBV_OBJECT_QP;
 	dump_obj->handle = qp->handle;
@@ -54,7 +56,10 @@ static void ib_uverbs_dump_qp(struct ibv_dump_object *dump_obj)
 				IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER | IBV_QP_PORT | IBV_QP_TIMEOUT |
 				IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY;
 
-	ibv_query_qp(qp, &attr, mask, &init_attr);
+	if (ibv_query_qp(qp, &attr, mask, &init_attr) < 0) {
+		LOG_ERROR("query qp error");
+		return;
+	}
 	LOG_DEBUG("Dump qp: qp_num=" << qp->qp_num << " pd_handle=" << qp->pd->handle << " state=" << qp->state << " qp_type=" << qp->qp_type << " send_cq_handle=" << qp->send_cq->handle << " recv_cq_handle=" << qp->recv_cq->handle);
 	LOG_DEBUG("Dump qp: path_mtu=" << attr.path_mtu << " path_mig_state=" << attr.path_mig_state << " qkey=" << attr.qkey << " rq_psn=" << attr.rq_psn << " sq_psn=" << attr.sq_psn << " dest_qp_num=" << attr.dest_qp_num << " qp_access_flags=" << attr.qp_access_flags << " port_num=" << attr.port_num);
 	LOG_DEBUG("Dump qp: cap.max_send_wr=" << attr.cap.max_send_wr << " cap.max_recv_wr=" << attr.cap.max_recv_wr << " cap.max_send_sge=" << attr.cap.max_send_sge << " cap.max_recv_sge=" << attr.cap.max_recv_sge << " cap.max_inline_data=" << attr.cap.max_inline_data);
@@ -63,7 +68,7 @@ static void ib_uverbs_dump_qp(struct ibv_dump_object *dump_obj)
 	memcpy(&(dump_qp->attr), &attr, sizeof(struct ibv_qp_attr));
 }
 
-static void ib_uverbs_dump_mr(struct ibv_dump_object *dump_obj)
+static void ib_uverbs_dump_mr(struct ibv_dump_object *dump_obj, Router *ffr)
 {
 	dump_obj->type = IBV_OBJECT_MR;
 	dump_obj->handle = mr->handle;
@@ -73,9 +78,12 @@ static void ib_uverbs_dump_mr(struct ibv_dump_object *dump_obj)
 	dump_mr->pd_handle = mr->pd->handle;
 	dump_mr->addr = mr->addr;
 	dump_mr->length = mr->length;
+	dump_mr->lkey = mr->lkey;
+	dump_mr->rkey = mr->rkey;
+	strcpy(dump_mr->shm_name, ffr->shmr_map[mr->handle]->name.c_str());
 }
 
-static void ib_uverbs_dump_object(enum ibv_object_type type, struct ibv_dump_object **dump_obj)
+static void ib_uverbs_dump_object(enum ibv_object_type type, struct ibv_dump_object **dump_obj, Router *ffr)
 {
 	switch (type) {
 		case IBV_OBJECT_PD:
@@ -85,10 +93,10 @@ static void ib_uverbs_dump_object(enum ibv_object_type type, struct ibv_dump_obj
 			ib_uverbs_dump_cq(*dump_obj);
 			break;
 		case IBV_OBJECT_QP:
-			ib_uverbs_dump_qp(*dump_obj);
+			ib_uverbs_dump_qp(*dump_obj, qp);
 			break;
 		case IBV_OBJECT_MR:
-			ib_uverbs_dump_mr(*dump_obj);
+			ib_uverbs_dump_mr(*dump_obj, ffr);
 			break;
 	}
 	size += (*dump_obj)->size;
@@ -107,7 +115,7 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_pd *cur_pd = ffr->pd_map[i];
 		if (cur_pd != NULL) {
 			pd = cur_pd;
-			ib_uverbs_dump_object(IBV_OBJECT_PD, &dump_obj);
+			ib_uverbs_dump_object(IBV_OBJECT_PD, &dump_obj, NULL);
 		}
 	}
 
@@ -116,7 +124,7 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_cq *cur_cq = ffr->cq_map[i];
 		if (cur_cq != NULL) {
 			cq = cur_cq;
-			ib_uverbs_dump_object(IBV_OBJECT_CQ, &dump_obj);
+			ib_uverbs_dump_object(IBV_OBJECT_CQ, &dump_obj, NULL);
 		}
 	}
 
@@ -125,7 +133,7 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_qp *cur_qp = ffr->qp_map[i];
 		if (cur_qp != NULL) {
 			qp = cur_qp;
-			ib_uverbs_dump_object(IBV_OBJECT_QP, &dump_obj);
+			ib_uverbs_dump_object(IBV_OBJECT_QP, &dump_obj, NULL);
 		}
 	}
 
@@ -134,7 +142,7 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_mr *cur_mr = ffr->mr_map[i];
 		if (cur_mr != NULL) {
 			mr = cur_mr;
-			ib_uverbs_dump_object(IBV_OBJECT_MR, &dump_obj);
+			ib_uverbs_dump_object(IBV_OBJECT_MR, &dump_obj, ffr);
 		}
 	}
 

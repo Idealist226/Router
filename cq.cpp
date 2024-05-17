@@ -31,7 +31,6 @@ int ib_uverbs_create_cq(Router *ffr, int client_sock, void *req_body, void *rsp)
 		LOG_ERROR("CQ handle (" << cq->handle << ") is no less than MAX_QUEUE_MAP_SIZE.");
 	} else {
 		ffr->cq_map[cq->handle] = cq;
-		ffr->cq_handle_map[cq->handle] = cq->handle;
 	}
 
 	//rsp = malloc(sizeof(struct IBV_CREATE_CQ_RSP));
@@ -40,14 +39,6 @@ int ib_uverbs_create_cq(Router *ffr, int client_sock, void *req_body, void *rsp)
 
 	LOG_DEBUG("Create CQ: cqe = " << cq->cqe << "handle = " << cq->handle);
 
-	std::stringstream ss;
-	ss << "cq" << cq->handle;
-	ShmPiece* sp = ffr->initCtrlShm(ss.str().c_str());
-	ffr->cq_shm_map[cq->handle] = sp;
-	strcpy(response->shm_name, sp->name.c_str());
-	// pthread_mutex_lock(&ffr->cq_shm_vec_mtx);
-	// ffr->cq_shm_vec.push_back(cq->handle);
-	// pthread_mutex_unlock(&ffr->cq_shm_vec_mtx);
 	return sizeof(*response);
 }
 
@@ -72,17 +63,6 @@ int ib_uverbs_destroy_cq(Router *ffr, int client_sock, void *req_body, void *rsp
 
 	int ret = ibv_destroy_cq(cq);
 	ffr->cq_map[request->cq_handle] = NULL;
-
-	// pthread_mutex_lock(&ffr->cq_shm_vec_mtx);
-	// std::vector<uint32_t>::iterator position = std::find(ffr->cq_shm_vec.begin(), ffr->cq_shm_vec.end(), request->cq_handle);
-	// if (position != ffr->cq_shm_vec.end()) // == myVector.end() means the element was not found
-	// 	ffr->cq_shm_vec.erase(position);
-	// pthread_mutex_unlock(&ffr->cq_shm_vec_mtx); 
-
-	ShmPiece* sp = ffr->cq_shm_map[request->cq_handle];
-	if (sp)
-		delete sp;
-	ffr->cq_shm_map[request->cq_handle] = NULL;
 
 	//rsp = malloc(sizeof(struct IBV_DESTROY_CQ_RSP));
 	((struct IBV_DESTROY_CQ_RSP *)rsp)->ret = ret;
