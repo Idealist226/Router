@@ -14,9 +14,10 @@
 
 #define MR_MAP_PORT 11231
 #define RESTORE_PORT 11232
-#define HOST_NUM 2
+#define HOST_NUM 3
 
 const char HOST_LIST[HOST_NUM][16] = {
+	"192.168.122.35",
 	"192.168.122.47",
 	"192.168.122.68"
 };
@@ -66,6 +67,8 @@ public:
 	std::map<uint32_t, struct MR_SHM> rkey_mr_shm;
 	pthread_mutex_t rkey_mr_shm_mtx;
 
+	// mr_handle --> origin mr address
+	std::map<uint32_t, void*> mr_handle_addr;
 	// qp_handle -> tokenbucket
 	// std::map<uint32_t, TokenBucket*> tokenbucket;
 

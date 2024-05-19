@@ -76,7 +76,7 @@ static void ib_uverbs_dump_mr(struct ibv_dump_object *dump_obj, Router *ffr)
 
 	struct ibv_dump_mr *dump_mr = container_of(dump_obj, struct ibv_dump_mr, obj);
 	dump_mr->pd_handle = mr->pd->handle;
-	dump_mr->addr = mr->addr;
+	dump_mr->addr = ffr->mr_handle_addr[mr->handle];
 	dump_mr->length = mr->length;
 	dump_mr->lkey = mr->lkey;
 	dump_mr->rkey = mr->rkey;
@@ -115,7 +115,12 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_pd *cur_pd = ffr->pd_map[i];
 		if (cur_pd != NULL) {
 			pd = cur_pd;
+			int handle = pd->handle;
 			ib_uverbs_dump_object(IBV_OBJECT_PD, &dump_obj, NULL);
+			if (ibv_dealloc_pd(pd) < 0) {
+				return -1;
+			}
+			ffr->pd_map[handle] = NULL;
 		}
 	}
 
@@ -124,7 +129,12 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_cq *cur_cq = ffr->cq_map[i];
 		if (cur_cq != NULL) {
 			cq = cur_cq;
+			int handle = cq->handle;
 			ib_uverbs_dump_object(IBV_OBJECT_CQ, &dump_obj, NULL);
+			if (ibv_destroy_cq(cq) < 0) {
+				return -1;
+			}
+			ffr->cq_map[handle] = NULL;
 		}
 	}
 
@@ -133,7 +143,12 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_qp *cur_qp = ffr->qp_map[i];
 		if (cur_qp != NULL) {
 			qp = cur_qp;
+			int handle = qp->handle;
 			ib_uverbs_dump_object(IBV_OBJECT_QP, &dump_obj, NULL);
+			if (ibv_destroy_qp(qp) < 0) {
+				return -1;
+			}
+			ffr->qp_map[handle] = NULL;
 		}
 	}
 
@@ -142,7 +157,17 @@ int ib_uverbs_dump_objects(Router *ffr, int client_sock, void *req_body, void *r
 		struct ibv_mr *cur_mr = ffr->mr_map[i];
 		if (cur_mr != NULL) {
 			mr = cur_mr;
+			int handle = mr->handle;
+			ShmPiece* sp = ffr->shmr_map[handle];
 			ib_uverbs_dump_object(IBV_OBJECT_MR, &dump_obj, ffr);
+			if (ibv_dereg_mr(mr) < 0) {
+				return -1;
+			}
+			ffr->mr_map[handle] = NULL;
+			// TODO: 把 shmr 的内容 dump 出来
+			// if (sp)
+			// 	delete sp;
+			ffr->shmr_map[handle] = NULL;
 		}
 	}
 

@@ -167,6 +167,7 @@ ShmPiece* Router::addShmPiece(std::string shm_name, int mem_size)
     pthread_mutex_lock(&this->shm_mutex);
     if (this->shm_map.find(shm_name) != this->shm_map.end()) {
         pthread_mutex_unlock(&this->shm_mutex);
+		LOG_DEBUG("ShmPiece " << shm_name << " already exists.");
         return this->shm_map[shm_name];
     }
 
@@ -360,11 +361,11 @@ void HandleRequest(struct HandlerArgs *args)
 			goto end;
 		}
 
-		LOG_TRACE("write rsp " << size << " bytes to sock " << client_sock);
 		if ((n = write(client_sock, rsp, size)) < size) {
 			LOG_ERROR("Error in writing bytes" << n);
 			goto kill;
 		}
+		LOG_TRACE("write rsp " << n << " bytes to sock " << client_sock);
 
 		if (header.func == SOCKET_SOCKET || header.func == SOCKET_ACCEPT || header.func == SOCKET_ACCEPT4) {
 			if (((struct SOCKET_SOCKET_RSP *)rsp)->ret >= 0) {

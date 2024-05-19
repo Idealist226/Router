@@ -97,6 +97,7 @@ int ib_uverbs_reg_mr(Router *ffr, int client_sock, void *req_body, void *rsp, in
 		pthread_mutex_lock(&ffr->lkey_ptr_mtx);
 		ffr->lkey_ptr[mr->lkey] = sp->ptr;
 		pthread_mutex_unlock(&ffr->lkey_ptr_mtx);
+		ffr->mr_handle_addr[mr->handle] = request->addr;
 	}
 
 	// 向其他 Router 通报 mr 的 lkey 到本端 Router shm_ptr 的映射

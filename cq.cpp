@@ -37,7 +37,7 @@ int ib_uverbs_create_cq(Router *ffr, int client_sock, void *req_body, void *rsp)
 	response->cqe = cq->cqe;
 	response->handle = cq->handle;
 
-	LOG_DEBUG("Create CQ: cqe = " << cq->cqe << "handle = " << cq->handle);
+	LOG_DEBUG("Create CQ: cqe = " << cq->cqe << " handle = " << cq->handle);
 
 	return sizeof(*response);
 }

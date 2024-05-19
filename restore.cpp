@@ -303,6 +303,7 @@ static int ib_uverbs_restore_mr(Router *ffr, ibv_dump_object *obj)
 		pthread_mutex_lock(&ffr->lkey_ptr_mtx);
 		ffr->lkey_ptr[dump_mr->lkey] = sp->ptr;
 		pthread_mutex_unlock(&ffr->lkey_ptr_mtx);
+		ffr->mr_handle_addr[obj->handle] = dump_mr->addr;
 	}
 
 	/* 向其他 Router 通报 mr 的 lkey 到本端 Router shm_ptr 的映射 */
