@@ -303,6 +303,7 @@ static int ib_uverbs_restore_mr(Router *ffr, ibv_dump_object *obj)
 		pthread_mutex_lock(&ffr->lkey_ptr_mtx);
 		ffr->lkey_ptr[dump_mr->lkey] = sp->ptr;
 		pthread_mutex_unlock(&ffr->lkey_ptr_mtx);
+		ffr->lkey_lkey[dump_mr->lkey] = mr->lkey;
 		ffr->mr_handle_addr[obj->handle] = dump_mr->addr;
 	}
 

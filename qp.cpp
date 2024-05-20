@@ -212,8 +212,10 @@ int ib_uverbs_post_send(Router *ffr, int client_sock, void *req_body, void *rsp,
 			wr[i].sg_list = sge;
 			pthread_mutex_lock(&ffr->lkey_ptr_mtx);
 			for (int j = 0; j < wr[i].num_sge; j++) {
-				LOG_DEBUG("wr[i].wr_id=" << wr[i].wr_id << " qp_num=" << qp->qp_num << " sge.addr=" << sge[j].addr << " sge.length" << sge[j].length << " opcode=" << wr[i].opcode);
+				LOG_DEBUG("wr[i].wr_id=" << wr[i].wr_id << " qp_num=" << qp->qp_num << " sge.addr=" << sge[j].addr << " sge.length=" << sge[j].length << " opcode=" << wr[i].opcode);
 				sge[j].addr = (uint64_t)((char*)(ffr->lkey_ptr[sge[j].lkey]) + sge[j].addr);
+				// restore 后，mr 的 lkey 会改变，所以需要重新设置
+				sge[j].lkey = ffr->lkey_lkey[sge[j].lkey];
 				LOG_DEBUG("data=" << ((char*)(sge[j].addr))[0] << ((char*)(sge[j].addr))[1] << ((char*)(sge[j].addr))[2]);
 				LOG_DEBUG("imm_data==" << wr[i].imm_data);
 			}
@@ -295,6 +297,7 @@ int ib_uverbs_post_recv(Router *ffr, int client_sock, void *req_body, void *rsp,
 			pthread_mutex_lock(&ffr->lkey_ptr_mtx);
 			for (int j = 0; j < wr[i].num_sge; j++) {
 				sge[j].addr = (uint64_t)(ffr->lkey_ptr[sge[j].lkey]) + (uint64_t)(sge[j].addr);
+				sge[j].lkey = ffr->lkey_lkey[sge[j].lkey];
 			}
 			pthread_mutex_unlock(&ffr->lkey_ptr_mtx);
 			sge += wr[i].num_sge;

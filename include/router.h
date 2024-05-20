@@ -62,6 +62,8 @@ public:
 	// lkey --> ptr of shm piece buffer
 	std::map<uint32_t, void*> lkey_ptr;
 	pthread_mutex_t lkey_ptr_mtx;
+	// origin mr lkey --> new mr lkey
+	std::map<uint32_t, uint32_t> lkey_lkey;
 
 	// rkey --> MR and SHM pointers
 	std::map<uint32_t, struct MR_SHM> rkey_mr_shm;
@@ -69,6 +71,7 @@ public:
 
 	// mr_handle --> origin mr address
 	std::map<uint32_t, void*> mr_handle_addr;
+
 	// qp_handle -> tokenbucket
 	// std::map<uint32_t, TokenBucket*> tokenbucket;
 
